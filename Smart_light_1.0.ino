@@ -475,9 +475,69 @@ void reconnect()
   }
 }
 
+//获取当前光照值
+int Get_light(){
+  return analogRead(A0);
+}
+
+//继电器1控制
+void SW1_control(int val){
+  if(val){
+    digitalWrite(SW1_pin,HIGH);
+  }else{
+    digitalWrite(SW1_pin,LOW);
+  }
+}
+
+//继电器2控制
+void SW2_control(int val){
+  if(val){
+    digitalWrite(SW2_Pin,HIGH);
+  }else{
+    digitalWrite(SW2_Pin,LOW);
+  }
+}
+
+//白光亮度控制
+void PWM1_control(int val){
+  if(val<0||val>1023)
+  analogWrite(PWM_1_Pin, 0);
+  else
+  analogWrite(PWM_2_Pin, val);
+}
+
+//暖白亮度控制
+void PWM2_control(int val){
+  if(val<0||val>1023){
+    analogWrite(PWM_2_Pin, 0)
+  }else{
+    analogWrite(PWM_2_Pin, val)
+  }
+}
+
+//按键检测
+ void Key_scan(){
+   if(digitalRead(Key_Pin)==0){
+     delay(10);
+     if(digitalRead(Key_Pin)==0){
+       //转为AP模式，获取SSID和password之后重新连接WiFi
+       //TODO
+     }
+   }
+ }
+
 void setup()
 {
-  pinMode(BUILTIN_LED, OUTPUT); // Initialize the BUILTIN_LED pin as an output
+  //初始化IO口
+  pinMode(PWM_1_Pin, OUTPUT); 
+  pinMode(PWM_2_Pin, OUTPUT); 
+  pinMode(SW1_pin, OUTPUT); 
+  pinMode(SW2_Pin, OUTPUT); 
+  pinMode(DIN_Pin, OUTPUT); 
+  pinMode(Sound_Pin, OUTPUT); //之后升级再使用此功能
+  pinMode(Key_Pin, INPUT_PULLUP); 
+
+  //初始化串口  输出日志
   Serial.begin(115200);
   setup_wifi();
   client.setServer(mqtt_server, 1883); //连接服务器
