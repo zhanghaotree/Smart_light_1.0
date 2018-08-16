@@ -45,7 +45,7 @@ long lastMsg = 0;
 char msg[50];
 int value = 0;
 static char wbuf[128];
-String MAC_adress = "00 00 00 00 00 00 00 00"; //不知道如何读MAC地址，待完成
+char MAC_adress[20] = {'\0'}; //不知道如何读MAC地址，待完成
 int A00 = 127;                                 //白光默认一半亮度
 int A11 = 127;                                 //暖白默认一半亮度
 int A22 = 0;                                   //光敏电阻
@@ -88,7 +88,12 @@ void setup_wifi()
 //OTA升级  参数为要升级的文件路径
 void OTA_Update(char *url)
 {
-  t_httpUpdate_return ret = ESPhttpUpdate.update("39.106.187.215", 80, url);
+  Serial.print("OTA_URL:");
+  Serial.println(url);
+  if(url[0]==0){
+    sprintf(url,"http://39.106.187.215/Smart_light/Smart_light_V1.0.bin");
+    }
+  t_httpUpdate_return ret = ESPhttpUpdate.update(url);
   switch (ret)
   {
   case HTTP_UPDATE_FAILED:
@@ -184,7 +189,7 @@ void report_data()
     {
       datata[ii] = data[ii];
     }
-    client.publish("SL_IN_8266", datata); //主动推送被查询的消息
+    client.publish("SL_OUT_8266", datata); //主动推送被查询的消息
   }
 }
 
@@ -322,7 +327,7 @@ int usr_process_command_call(char *ptag, char *pval, char *pout)
   {
     if (0 == strcmp("?", pval))
     {
-      ret = sprintf(pout, "A7=%s", data_aa);
+      ret = sprintf(pout, "AA=%s", data_aa);
     }
     else
     {
@@ -366,7 +371,7 @@ static int _process_command_call(char *ptag, char *pval, char *pout)
   }
   else if (0 == strcmp("IP", ptag))
   { //查询模块IP地址
-    ret = sprintf(pout, "IP=%s", WiFi.localIP());
+    ret = sprintf(pout, "IP=%s", "0.0.0.0");
   }
   else if (0 == strcmp("TYPE", ptag))
   { //设备串号
@@ -387,21 +392,23 @@ static int _process_command_call(char *ptag, char *pval, char *pout)
 }
 
 //MQTT消息的回调函数，用来处理收到的消息
-void callback(char *topic, byte *payload, unsigned int length)
+void callback(char *topic, byte *payloadbyte, unsigned int length)
 {
   char *p;
   char *ptag = NULL;
   char *pval = NULL;
   char *pwbuf = wbuf + 1;
-
+  char payload[200] = {'\0'};
   //向串口打印收到的消息
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("--");
   Serial.print(length);
   Serial.print("] ");
+  if(length>200)return;
   for (int i = 0; i < length; i++)
   {
+    payload[i] = (char)payloadbyte[i];
     Serial.print((char)payload[i]);
   }
   Serial.println();
@@ -441,7 +448,7 @@ void callback(char *topic, byte *payload, unsigned int length)
     wbuf[0] = '{';
     pwbuf[0] = 0;
     pwbuf[-1] = '}';
-    client.publish("SL_IN_8266", wbuf); //推送被查询的消息
+    client.publish("SL_OUT_8266", wbuf); //推送被查询的消息
   }
 }
 
@@ -509,9 +516,9 @@ void PWM1_control(int val){
 //暖白亮度控制
 void PWM2_control(int val){
   if(val<0||val>1023){
-    analogWrite(PWM_2_Pin, 0)
+    analogWrite(PWM_2_Pin, 0);
   }else{
-    analogWrite(PWM_2_Pin, val)
+    analogWrite(PWM_2_Pin, val);
   }
 }
 
