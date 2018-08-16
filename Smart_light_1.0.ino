@@ -25,6 +25,14 @@ include files
 #include <ESP8266HTTPClient.h>
 #include <ESP8266httpUpdate.h>
 
+#define SW1_pin 5
+#define SW2_Pin 12
+#define DIN_Pin 4
+#define PWM_1_Pin 16
+#define PWM_2_Pin 14
+#define Sound_Pin 13
+#define Key_Pin 2
+
 //WIFI信息，可由配置按键修改
 const char *ssid = "TP123";
 const char *password = "123456789";
