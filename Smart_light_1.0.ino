@@ -45,7 +45,8 @@ long lastMsg = 0;
 char msg[50];
 int value = 0;
 static char wbuf[128];
-char MAC_adress[20] = {'\0'}; //不知道如何读MAC地址，待完成
+//char MAC_adress[20] = {'\0'}; //不知道如何读MAC地址，待完成
+uint8_t MAC_adress[6];  //在SetUp函数中初始化该数组，查询时返回该数组
 int A00 = 127;                                 //白光默认一半亮度
 int A11 = 127;                                 //暖白默认一半亮度
 int A22 = 0;                                   //光敏电阻
@@ -371,7 +372,7 @@ static int _process_command_call(char *ptag, char *pval, char *pout)
   }
   else if (0 == strcmp("MAC", ptag))
   { //查询模块MAC地址
-    ret = sprintf(pout, "MAC=%s", MAC_adress);
+    ret = sprintf(pout, "MAC=%02x:%02x:%02x:%02x:%02x:%02x", MAC_adress[0],MAC_adress[1],MAC_adress[2],MAC_adress[3],MAC_adress[4],MAC_adress[5]);
   }
   else if (0 == strcmp("IP", ptag))
   { //查询模块IP地址
@@ -556,6 +557,9 @@ void setup()
   setup_wifi();
   client.setServer(mqtt_server, 1883); //连接服务器
   client.setCallback(callback);        //设置回调函数
+
+  //初始化MAC地址数组
+  WiFi.macAddress(MAC_adress);
 }
 
 void loop()
