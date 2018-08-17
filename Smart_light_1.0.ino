@@ -363,6 +363,10 @@ static int _process_command_call(char *ptag, char *pval, char *pout)
   val = atoi(pval);
   if (0 == strcmp("ECHO", ptag))
   { //ECHO测试连通性，数据原样返回
+    if(0 == strcmp("RST",pval))
+    {
+      ESP.restart();
+    }
     ret = sprintf(pout, "ECHO=%s", pval);
   }
   else if (0 == strcmp("MAC", ptag))
@@ -521,7 +525,10 @@ void PWM2_control(int val){
     analogWrite(PWM_2_Pin, val);
   }
 }
-
+/**
+ * 转换重连wifi的方法，新的操作逻辑为：
+ * 在上电时检测KEY1的状态，如果为高，则按照预设参数正常启动，
+ * 如果为低，则开启AP模式，启动HTTP Server，配置SSID和Password。
 //按键检测
  void Key_scan(){
    if(digitalRead(Key_Pin)==0){
@@ -532,7 +539,7 @@ void PWM2_control(int val){
      }
    }
  }
-
+**/
 void setup()
 {
   //初始化IO口
