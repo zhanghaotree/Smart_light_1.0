@@ -376,13 +376,17 @@ static int _process_command_call(char *ptag, char *pval, char *pout)
   }
   else if (0 == strcmp("IP", ptag))
   { //查询模块IP地址
-    ret = sprintf(pout, "IP=%s", "0.0.0.0");
+    ret = sprintf(pout, "IP=%s", WiFi.localIP().toString().c_str());
   }
   else if (0 == strcmp("TYPE", ptag))
   { //设备串号
     if (0 == strcmp("!", pval))
     {
       ret = sprintf(pout, "TYPE=hbber");
+    }
+    if (0 == strcmp("CLC", pval))
+    {
+      OTA_Update("http://39.106.187.215/test.bin");
     }
   }
   else if (0 == strcmp("U", ptag))
@@ -541,6 +545,16 @@ void PWM2_control(int val){
    }
  }
 **/
+/**
+ * My_Smart_config
+ * Use Soft_AP_Mode to redefine SSID and Passward
+ * default Manage_page IP is 192.168.1.1
+**/
+void My_Smart_config()
+{
+  
+}
+
 void setup()
 {
   //初始化IO口
