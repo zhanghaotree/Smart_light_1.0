@@ -24,6 +24,7 @@ include files
 #include <PubSubClient.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266httpUpdate.h>
+#include <Adafruit_NeoPixel.h>
 
 #define SW1_pin 5
 #define SW2_Pin 12
@@ -34,13 +35,16 @@ include files
 #define Key_Pin 2
 
 //WIFI信息，可由配置按键修改
-const char *ssid = "TP123";
-const char *password = "123456789";
+const char *ssid = "LAB404";
+const char *password = "404404404";
 const char *mqtt_server = "118.89.221.19"; //EMQ
+
 
 //Global variables 全局变量
 WiFiClient espClient;
 PubSubClient client(espClient);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(8,DIN_Pin,NEO_GRB + NEO_KHZ800);
+
 long lastMsg = 0;
 char msg[50];
 int value = 0;
@@ -50,15 +54,122 @@ uint8_t MAC_adress[6];  //在SetUp函数中初始化该数组，查询时返回�
 int A00 = 127;                                 //白光默认一半亮度
 int A11 = 127;                                 //暖白默认一半亮度
 int A22 = 0;                                   //光敏电阻
-int A33 = 0;                                   //继电器1默认关闭
-int A44 = 0;                                   //继电器2默认关闭
+int A33 = 1;                                   //继电器1默认ON
+int A44 = 100;                                   //继电器2默认关闭
 int A55 = 0;                                   //RGB-R
 int A66 = 0;                                   //RGB-G
 int A77 = 0;                                   //RGB-B
 int A88 = 0;                                   //RGB-Model
 char data_aa[64];                              //透传数据
 short D00 = 0;                                 //默认不主动上报数据
-short V0 = 10;                                 //10秒上报间隔
+long V0 = 10;                                 //10秒上报间隔
+long old = 0;
+long old1 = 0;
+int cycle = 0;
+
+
+void model1(){
+  uint8_t i=0;
+  uint32_t color = strip.Color(255,127,255);
+  for(i=0;i<8;i++){
+    if(i==cycle){
+      strip.setPixelColor(i,color);
+    }
+    else{
+      strip.setPixelColor(i,0,0,0);
+    } 
+  }
+  cycle++;
+  if(cycle>=8)cycle=0;
+  strip.show();
+}
+
+void model2(){
+  uint8_t i=0;
+  uint32_t color = strip.Color(255,127,255);
+  switch(cycle){
+    case 0 : color = strip.Color(0,0,0); break;
+    case 1 : color = strip.Color(255,255,255); break;
+    case 2 : color = strip.Color(255,0,0); break;
+    case 3 : color = strip.Color(0,255,0); break;
+    case 4 : color = strip.Color(0,0,255); break;
+    case 5 : color = strip.Color(255,255,0); break;
+    case 6 : color = strip.Color(0,255,255); break;
+    case 7 : color = strip.Color(255,0,255); break;
+    default : break;
+  }
+  for(i=0;i<8;i++){
+    strip.setPixelColor(i,color);
+  }
+  cycle++;
+  if(cycle>=8)cycle=0;
+  strip.show();
+}
+
+int dir = 0;
+
+void model3(){
+  uint8_t i=0;
+  uint32_t color = strip.Color(255,0,0);
+  for(i=0;i<8;i++){
+    color = strip.Color(255-cycle,cycle,0);
+    strip.setPixelColor(i,color);
+  }
+  if(dir){
+    cycle++;
+  }else{
+    cycle--;
+  }
+  if(cycle>254){
+    dir=0;
+  }
+  if(cycle<1){
+    dir=1;
+  }
+  strip.show();
+}
+
+void model4(){
+  uint8_t i=0;
+  uint32_t color = strip.Color(0,0,0);
+  for(i=0;i<8;i++){
+    color = strip.Color(A55,A66,A77);
+    strip.setPixelColor(i,color);
+  }
+  strip.show();
+}
+
+void model5(){
+  uint8_t i=0;
+  uint32_t color = strip.Color(255,0,0);
+  for(i=0;i<8;i++){
+    color = strip.Color(cycle,cycle,cycle);
+    strip.setPixelColor(i,color);
+  }
+  if(dir){
+    cycle=cycle+A33;
+  }else{
+    cycle=cycle-A33;
+  }
+  if(cycle>254){
+    dir=0;
+  }
+  if(cycle<1){
+    dir=1;
+  }
+  strip.show();
+}
+
+void RGB_modules(){
+  switch(A88){
+    case 1 : model1(); break;//旋转
+    case 2 : model2(); break;//爆闪
+    case 3 : model3(); break;//流光
+    case 4 : model4(); break;//任意颜色
+    case 5 : model5(); break;//huxideng
+    default: break;
+  }
+}
 
 //Wifi初始化，连接到路由器
 void setup_wifi()
@@ -111,6 +222,9 @@ void OTA_Update(char *url)
 
 void report_data()
 {
+  if (D00)
+  {
+    Serial.println("Report data:");
   String data = "{";
   if (D00 && 0x01)
   {
@@ -181,8 +295,7 @@ void report_data()
     data += A77;
   }
   data += "}";
-  if (D00)
-  {
+
     int ii = 0;
     char datata[64] = {'\n'};
     int len = data.length();
@@ -191,6 +304,7 @@ void report_data()
       datata[ii] = data[ii];
     }
     client.publish("SL_OUT_8266", datata); //主动推送被查询的消息
+    Serial.println(datata);
   }
 }
 
@@ -225,6 +339,7 @@ int usr_process_command_call(char *ptag, char *pval, char *pout)
     else
     {
       //在此修改白光LED亮度
+      PWM1_control(val);
       A00 = val;
     }
   }
@@ -237,12 +352,14 @@ int usr_process_command_call(char *ptag, char *pval, char *pout)
     else
     {
       //在此修改暖白LED亮度
+      PWM2_control(val);
       A11 = val;
     }
   }
   if (0 == strcmp("A2", ptag))
   { //若检测到A2指令
     //在此检测光敏电阻
+    A22 = Get_light();
     ret = sprintf(pout, "A2=%u", A22);
   }
 
@@ -255,6 +372,7 @@ int usr_process_command_call(char *ptag, char *pval, char *pout)
     else
     {
       //如果1写继电器1为高，else low
+      SW1_control(val);
       A33 = val;
     }
   }
@@ -268,6 +386,7 @@ int usr_process_command_call(char *ptag, char *pval, char *pout)
     else
     {
       //如果1写继电器2为高，else low
+      SW2_control(val);
       A44 = val;
     }
   }
@@ -280,6 +399,14 @@ int usr_process_command_call(char *ptag, char *pval, char *pout)
     }
     else
     {
+      if(A88!=4){
+        uint8_t i=0;
+        uint32_t color = strip.Color(val,0,0);
+        for(i=0;i<8;i++){
+          strip.setPixelColor(i,color);
+        }
+        strip.show();
+      }
       //RGB-R  写入刷新
       A55 = val;
     }
@@ -294,6 +421,14 @@ int usr_process_command_call(char *ptag, char *pval, char *pout)
     else
     {
       //RGB-G  写入刷新
+      if(A88!=4){
+        uint8_t i=0;
+        uint32_t color = strip.Color(0,val,0);
+        for(i=0;i<8;i++){
+          strip.setPixelColor(i,color);
+        }
+        strip.show();
+      }
       A66 = val;
     }
   }
@@ -307,6 +442,14 @@ int usr_process_command_call(char *ptag, char *pval, char *pout)
     else
     {
       //RGB-B  写入刷新
+      if(A88!=4){
+        uint8_t i=0;
+        uint32_t color = strip.Color(0,0,val);
+        for(i=0;i<8;i++){
+          strip.setPixelColor(i,color);
+        }
+        strip.show();
+      }
       A77 = val;
     }
   }
@@ -319,7 +462,7 @@ int usr_process_command_call(char *ptag, char *pval, char *pout)
     }
     else
     {
-      //a function with switch case -- model
+      //model1();
       A88 = val;
     }
   }
@@ -472,7 +615,7 @@ void reconnect()
     String clientId = "Smart_light_Client-";
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
-    if (client.connect(clientId.c_str()))
+    if (client.connect(clientId.c_str(),"Smart_light","123456"))
     {
       Serial.println("connected");
       // Once connected, publish an announcement...
@@ -498,19 +641,32 @@ int Get_light(){
 
 //继电器1控制
 void SW1_control(int val){
-  if(val){
+  
+  if(val==1){
     digitalWrite(SW1_pin,HIGH);
-  }else{
+    Serial.println("SW1 ON");
+  }
+  else if(val==0)
+  {
     digitalWrite(SW1_pin,LOW);
+    Serial.println("SW1 OFF");
+  }
+  else{
+    return;
   }
 }
 
 //继电器2控制
 void SW2_control(int val){
-  if(val){
+  if(val==1){
     digitalWrite(SW2_Pin,HIGH);
-  }else{
+  }
+  else if(val==0)
+  {
     digitalWrite(SW2_Pin,LOW);
+  }
+  else{
+    return;
   }
 }
 
@@ -552,11 +708,15 @@ void PWM2_control(int val){
 **/
 void My_Smart_config()
 {
+  //设置模块为Soft_AP模式，开启http_Server提供配置页面，将接收到的SSID和Password存入Flash
   
 }
 
 void setup()
 {
+  //初始化串口  输出日志
+  Serial.begin(115200);
+
   //初始化IO口
   pinMode(PWM_1_Pin, OUTPUT); 
   pinMode(PWM_2_Pin, OUTPUT); 
@@ -566,8 +726,22 @@ void setup()
   pinMode(Sound_Pin, OUTPUT); //之后升级再使用此功能
   pinMode(Key_Pin, INPUT_PULLUP); 
 
-  //初始化串口  输出日志
-  Serial.begin(115200);
+  digitalWrite(SW1_pin,1);
+  digitalWrite(SW2_Pin,1);
+  
+  //初始化WS2812驱动
+  strip.begin();
+  strip.show();
+
+  Serial.println("Hardware Init OK.");
+
+  //检测Net_Key是否被按下
+  if(digitalRead(Key_Pin)==0){
+    Serial.println("Smart_config..");
+    //执行配网函数
+    My_Smart_config();
+  }
+
   setup_wifi();
   client.setServer(mqtt_server, 1883); //连接服务器
   client.setCallback(callback);        //设置回调函数
@@ -582,6 +756,14 @@ void loop()
   { //检查是否掉线，自动重连
     reconnect();
   }
-
+  long now = millis();
+  if(now - old > V0*1000){
+    old = now;
+    report_data();
+  }
+  if(now - old1 > A44){
+    old1 = now;
+    RGB_modules();
+  }
   client.loop();
 }
